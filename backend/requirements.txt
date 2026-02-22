@@ -1,0 +1,10 @@
+fastapi>=0.110.0
+uvicorn>=0.27.1
+pydantic>=2.6.3
+python-dotenv>=1.0.1
+semantic-kernel>=1.8.0
+langchain>=0.1.13
+langchain-openai>=0.1.1
+pyxlsb>=1.0.10
+pypdf>=4.1.0
+azure-search-documents>=11.4.0

@@ -1,0 +1,100 @@
+{
+  "system_framework": "ISO 17000 Functional Compliance Architecture",
+  "version": "2.0",
+  "encoding_standard": "ISO 3166-1 Alpha-3",
+  "structure_definitions": {
+    "01_specified_requirements": {
+      "semantic_label": "The Rules",
+      "description": "Technical standards and legal limits that products must meet."
+    },
+    "02_conformity_assessment_bodies": {
+      "semantic_label": "The Actors",
+      "description": "Entities authorized to perform testing, certification, or inspection. Includes accreditation scopes and price lists."
+    },
+    "03_conformity_assessment_schemes": {
+      "semantic_label": "The Process",
+      "description": "Procedures, grouping criteria, and administrative steps to obtain or maintain compliance."
+    },
+    "04_applicability_references": {
+      "semantic_label": "The Logic",
+      "description": "Decision-support documents including HS code mapping, exemptions, and classification guides."
+    }
+  },
+  "technical_domains": {
+    "electrical_safety": "LVD, high-voltage, and product safety standards.",
+    "radio_and_telecom": "RF, wireless, and network homologation requirements.",
+    "energy_efficiency": "Power consumption and environmental labeling.",
+    "labeling_and_product_info": "Rules for physical labels, packaging, manuals, warranties, and consumer information.",
+    "medical_devices": "Healthcare and sanitary regulations for medical equipment.",
+    "textile_and_apparel": "Fiber content and garment labeling standards.",
+    "environmental_protection": "RoHS, WEEE, and chemical restriction limits."
+  },
+  "entity_roles": {
+    "testing_laboratories": "Technical entities performing measurement and analysis.",
+    "certification_bodies": "Entities with the authority to issue compliance certificates or grants.",
+    "inspection_bodies": "Entities validating labeling or physical shipments (e.g., UVAs).",
+    "mutual_recognition_agreements": "Treaties or policies defining the acceptance of foreign data."
+  },
+  "logic_gateways": {
+    "hs_code_correlation_tables": "Mapping of Customs Tariffs to regulatory requirements.",
+    "exemption_criteria": "Conditions under which a product is excluded from certification.",
+    "product_classification_guides": "Rules for defining a product's regulatory category.",
+    "equivalency_tables": "Recognition of international standards as local equivalents.",
+    "prohibited_and_restricted_lists": "Banned components, frequencies, or chemicals."
+  },
+  "countries": {
+    "ARG": "Argentina",
+    "ATG": "Antigua and Barbuda",
+    "BHS": "Bahamas",
+    "BRB": "Barbados",
+    "BLM": "Saint Barthélemy",
+    "BMU": "Bermuda",
+    "BOL": "Bolivia",
+    "BES": "Bonaire, Sint Eustatius and Saba",
+    "BRA": "Brazil",
+    "VGB": "Virgin Islands (British)",
+    "CAN": "Canada",
+    "CYM": "Cayman Islands",
+    "CHL": "Chile",
+    "COL": "Colombia",
+    "CRI": "Costa Rica",
+    "CUB": "Cuba",
+    "CUW": "Curaçao",
+    "DMA": "Dominica",
+    "DOM": "Dominican Republic",
+    "ECU": "Ecuador",
+    "SLV": "El Salvador",
+    "FLK": "Falkland Islands",
+    "GUF": "French Guiana",
+    "GRL": "Greenland",
+    "GRD": "Grenada",
+    "GLP": "Guadeloupe",
+    "GTM": "Guatemala",
+    "GUY": "Guyana",
+    "HTI": "Haiti",
+    "HND": "Honduras",
+    "JAM": "Jamaica",
+    "MEX": "Mexico",
+    "MSR": "Montserrat",
+    "NIC": "Nicaragua",
+    "PAN": "Panama",
+    "PRY": "Paraguay",
+    "PER": "Peru",
+    "PRI": "Puerto Rico",
+    "KNA": "Saint Kitts and Nevis",
+    "LCA": "Saint Lucia",
+    "MAF": "Saint Martin (French part)",
+    "SPM": "Saint Pierre and Miquelon",
+    "VCT": "Saint Vincent and the Grenadines",
+    "SXM": "Sint Maarten (Dutch part)",
+    "SGS": "South Georgia and the South Sandwich Islands",
+    "SUR": "Suriname",
+    "TTO": "Trinidad and Tobago",
+    "TCA": "Turks and Caicos Islands",
+    "USA": "United States of America",
+    "UMI": "United States Minor Outlying Islands",
+    "URY": "Uruguay",
+    "VEN": "Venezuela",
+    "VIR": "Virgin Islands (U.S.)"
+  }
+}

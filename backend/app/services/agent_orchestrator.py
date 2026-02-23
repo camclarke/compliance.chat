@@ -14,7 +14,7 @@ def create_kernel() -> sk.Kernel:
     if settings.AZURE_OPENAI_API_KEY and settings.AZURE_OPENAI_ENDPOINT:
         try:
             kernel.add_service(
-                sk.services.AzureChatCompletion(
+                AzureChatCompletion(
                     service_id="chat",
                     deployment_name=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
                     endpoint=settings.AZURE_OPENAI_ENDPOINT,

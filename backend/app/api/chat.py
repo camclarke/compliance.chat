@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Form, UploadFile, File
 import semantic_kernel as sk
-from app.models.chat_schemas import ChatRequest, ChatResponse
+from app.models.chat_schemas import ChatResponse
 from app.services.agent_orchestrator import create_kernel, process_chat_message
 
 router = APIRouter()
@@ -10,9 +10,13 @@ def get_kernel() -> sk.Kernel:
     return create_kernel()
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest, kernel: sk.Kernel = Depends(get_kernel)):
+async def chat_endpoint(
+    message: str = Form(...),
+    file: UploadFile = File(None),
+    kernel: sk.Kernel = Depends(get_kernel)
+):
     """
-    Receives a chat message from the frontend and returns the AI's response.
+    Receives a chat message (and optional file) from the frontend and returns the AI's response.
     """
     # Simple check to ensure keys are loaded
     if not kernel.get_service("chat"):
@@ -22,10 +26,15 @@ async def chat_endpoint(request: ChatRequest, kernel: sk.Kernel = Depends(get_ke
         )
 
     try:
-        reply = await process_chat_message(kernel, request.message)
+        # Read the file content if provided
+        file_content = await file.read() if file else None
+        file_name = file.filename if file else None
+        file_content_type = file.content_type if file else None
+
+        reply = await process_chat_message(kernel, message, file_content, file_name, file_content_type)
         return ChatResponse(
             reply=reply,
-            sources=["Azure AI Model Router Placeholder"]
+            sources=["Multimodal Swarm Response"]
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")

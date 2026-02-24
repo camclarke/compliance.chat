@@ -26,7 +26,10 @@ function App() {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -36,14 +39,29 @@ function App() {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() && !selectedFile) return;
 
     const userMessage = {
       id: Date.now(),
       role: 'user',
       content: input,
+      fileAttachment: selectedFile ? selectedFile.name : null,
       timestamp: new Date().toISOString()
     };
 
@@ -51,10 +69,22 @@ function App() {
     setInput('');
     setIsTyping(true);
 
+    // Create form data to support file uploads
+    const formData = new FormData();
+    formData.append('message', userMessage.content || '');
+    if (selectedFile) {
+      formData.append('file', selectedFile);
+    }
+
+    // Clear the selected file immediately after showing it in UI
+    const fileToUpload = selectedFile;
+    setSelectedFile(null);
+
     try {
-      // Connect to FastAPI Backend
-      const response = await axios.post('http://localhost:8000/api/chat', {
-        message: userMessage.content
+      const response = await axios.post('http://localhost:8000/api/chat', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
 
       const aiMessage = {
@@ -68,7 +98,7 @@ function App() {
       const errorMessage = {
         id: Date.now() + 1,
         role: 'assistant',
-        content: "I'm sorry, I'm having trouble connecting to the Semantic Kernel Swarm right now. Please check if the backend is running.",
+        content: "I'm sorry, I encountered an error while analyzing your request and document. " + (error.response?.data?.detail || error.message),
         timestamp: new Date().toISOString()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -79,8 +109,13 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)}></div>
+      )}
+
       {/* Sidebar */}
-      <aside className="sidebar glass-panel">
+      <aside className={`sidebar glass-panel ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="logo-container">
             <div className="logo-icon animate-pulse-glow">
@@ -130,10 +165,18 @@ function App() {
       <main className="main-content">
         <header className="chat-header glass-panel">
           <div className="header-title">
-            <h2>Regulatory Assessment</h2>
-            <div className="status-indicator">
-              <span className="status-dot"></span>
-              <span className="status-text">Swarm Ready</span>
+            <button
+              className="mobile-menu-btn glass-button icon-button"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <Menu size={20} />
+            </button>
+            <div className="header-text-group">
+              <h2>Regulatory Assessment</h2>
+              <div className="status-indicator">
+                <span className="status-dot"></span>
+                <span className="status-text">Swarm Ready</span>
+              </div>
             </div>
           </div>
           <button className="glass-button outline-button">
@@ -157,6 +200,12 @@ function App() {
                     {msg.role === 'user' ? <User size={16} /> : <ShieldCheck size={18} color="#fff" />}
                   </div>
                   <div className={`message-bubble ${msg.role === 'user' ? 'bubble-user' : 'bubble-ai glass-panel'}`}>
+                    {msg.fileAttachment && (
+                      <div className="message-attachment">
+                        <Paperclip size={14} />
+                        <span>{msg.fileAttachment}</span>
+                      </div>
+                    )}
                     {/* Hacky markdown renderer for the proof of concept frontend phase */}
                     <div className="prose">
                       {msg.content.split('\n').map((line, i) => (
@@ -192,8 +241,27 @@ function App() {
         </div>
 
         <div className="chat-input-area">
+          {selectedFile && (
+            <div className="file-preview-pill">
+              <FileText size={14} />
+              <span className="file-name">{selectedFile.name}</span>
+              <button type="button" className="remove-file-btn" onClick={removeFile}>&times;</button>
+            </div>
+          )}
           <form className="input-form glass-panel" onSubmit={handleSubmit}>
-            <button type="button" className="attachment-btn" title="Upload Specs (PDF/Image)">
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              onChange={handleFileSelect}
+              accept="application/pdf,image/png,image/jpeg,image/jpg"
+            />
+            <button
+              type="button"
+              className="attachment-btn"
+              title="Upload Specs (PDF/Image)"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Paperclip size={20} />
             </button>
             <textarea
@@ -211,8 +279,8 @@ function App() {
             />
             <button
               type="submit"
-              className={`send-button ${input.trim() ? 'active' : ''}`}
-              disabled={!input.trim()}
+              className={`send-button ${(input.trim() || selectedFile) ? 'active' : ''}`}
+              disabled={!input.trim() && !selectedFile}
             >
               <Send size={18} />
             </button>

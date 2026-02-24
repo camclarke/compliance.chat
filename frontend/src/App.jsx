@@ -83,6 +83,20 @@ function App() {
       timestamp: new Date().toISOString()
     };
 
+    // Attempt to silently acquire the Entra access token
+    let accessToken = '';
+    try {
+      if (activeAccount) {
+        const tokenResponse = await instance.acquireTokenSilent({
+          ...loginRequest,
+          account: activeAccount
+        });
+        accessToken = tokenResponse.accessToken;
+      }
+    } catch (err) {
+      console.error("Failed to acquire token silently", err);
+    }
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
@@ -101,7 +115,8 @@ function App() {
     try {
       const response = await axios.post('http://localhost:8000/api/chat', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${accessToken}`
         }
       });
 

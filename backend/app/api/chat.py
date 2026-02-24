@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Form, UploadFile, File
 import semantic_kernel as sk
 from app.models.chat_schemas import ChatResponse
 from app.services.agent_orchestrator import create_kernel, process_chat_message
+from app.core.auth import get_current_user
 
 router = APIRouter()
 
@@ -13,7 +14,8 @@ def get_kernel() -> sk.Kernel:
 async def chat_endpoint(
     message: str = Form(...),
     file: UploadFile = File(None),
-    kernel: sk.Kernel = Depends(get_kernel)
+    kernel: sk.Kernel = Depends(get_kernel),
+    user: dict = Depends(get_current_user)
 ):
     """
     Receives a chat message (and optional file) from the frontend and returns the AI's response.

@@ -83,15 +83,17 @@ function App() {
       timestamp: new Date().toISOString()
     };
 
-    // Attempt to silently acquire the Entra access token
-    let accessToken = '';
+    // Attempt to silently acquire the Entra ID token
+    let authHeaderToken = '';
     try {
       if (activeAccount) {
         const tokenResponse = await instance.acquireTokenSilent({
           ...loginRequest,
           account: activeAccount
         });
-        accessToken = tokenResponse.accessToken;
+        // Use ID Token instead of Access Token because we haven't exposed a custom API Scope in Azure.
+        // The ID token proves who the user is and can be validated by our FastAPI backend via the tenant JWKS.
+        authHeaderToken = tokenResponse.idToken;
       }
     } catch (err) {
       console.error("Failed to acquire token silently", err);
@@ -116,7 +118,7 @@ function App() {
       const response = await axios.post('http://localhost:8000/api/chat', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${accessToken}`
+          'Authorization': `Bearer ${authHeaderToken}`
         }
       });
 

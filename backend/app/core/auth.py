@@ -21,6 +21,14 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     """
     token = credentials.credentials
     try:
+        # Debug: Print the unverified headers and payload to see the issuer and audience!
+        unverified_headers = jwt.get_unverified_header(token)
+        unverified_payload = jwt.decode(token, options={"verify_signature": False})
+        print("====== DEBUG: INCOMING JWT ======")
+        print(f"Headers: {unverified_headers}")
+        print(f"Payload: {unverified_payload}")
+        print("=================================")
+
         # Fetch the signing key from the JWKS matching the token's kid header
         signing_key = jwks_client.get_signing_key_from_jwt(token)
         
@@ -30,21 +38,24 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             key=signing_key.key,
             algorithms=["RS256"],
             audience=CLIENT_ID,
-            issuer=f"https://compliancechat.ciamlogin.com/{TENANT_ID}/v2.0"
+            issuer=f"https://{TENANT_ID}.ciamlogin.com/{TENANT_ID}/v2.0"
         )
         return payload
 
     except jwt.exceptions.PyJWKClientError as error:
+        print(f"JWT PyJWKClientError: {error}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Unable to fetch signing key from Entra ID: {str(error)}"
         )
     except jwt.exceptions.ExpiredSignatureError:
+        print("JWT ExpiredSignatureError")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token signature has expired."
         )
     except jwt.exceptions.InvalidTokenError as error:
+        print(f"JWT InvalidTokenError: {error}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid authentication token: {str(error)}"

@@ -569,9 +569,255 @@
   gap: 0.4rem;
   padding: 0.5rem 0.75rem;
   background: rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.attachment-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.chat-textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  padding: 0.5rem;
+  resize: none;
+  min-height: 24px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.chat-textarea:focus {
+  outline: none;
+}
+
+.chat-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.send-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.send-button.active {
+  background: var(--accent-primary);
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.send-button.active:hover {
+  background: var(--accent-secondary);
+}
+
+.input-footer {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.75rem;
+}
+
+/* Mobile Menu Button */
+.mobile-menu-btn {
+  display: none;
+  margin-right: 1rem;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .logo-text {
+    font-size: 1rem;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -300px;
+    height: 100vh;
+    transition: left 0.3s ease;
+    background: rgba(19, 20, 26, 0.95);
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 5;
+    backdrop-filter: blur(2px);
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  .chat-header {
+    padding: 0 1rem;
+  }
+
+  .header-text-group h2 {
+    font-size: 0.95rem;
+  }
+
+  .outline-button {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .chat-scroll-area {
+    padding: 1rem;
+  }
+
+  .message-bubble {
+    max-width: 90%;
+    padding: 0.75rem 1rem;
+  }
+
+  .chat-input-area {
+    padding: 0 1rem 1rem;
+  }
+
+  .input-form {
+    padding: 0.5rem;
+  }
+
+  .chat-textarea {
+    font-size: 0.95rem;
+  }
+}
+
+/* File Attachment Styles */
+.file-preview-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-focus);
+  padding: 0.4rem 0.75rem;
+  border-radius: 16px;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.file-name {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-file-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.2rem;
+  margin-left: 0.25rem;
+}
+
+.remove-file-btn:hover {
+  color: #ef4444;
+}
+
+.message-attachment {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   margin-bottom: 0.75rem;
   font-size: 0.8rem;
   color: var(--text-secondary);
+}
+
+/* Login Screen */
+.login-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  background: linear-gradient(135deg, #0f111a 0%, #1a1c29 100%);
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem;
+  border-radius: 24px;
+  text-align: center;
+  max-width: 400px;
+}
+
+.login-card h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.login-card p {
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
+}
+
+.login-button {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.login-button:hover {
+  background: var(--accent-secondary);
+  transform: translateY(-2px);
 }

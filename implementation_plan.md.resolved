@@ -1,0 +1,68 @@
+# `compliance.chat` - Global Product Compliance Agent
+
+This project aims to build an intelligent, multi-agent AI system (`compliance.chat`) that accelerates the engineering and importation lifecycle by providing instant, grounded answers to complex, country-specific regulations (Telecommunications, Electrical Safety, Energy Efficiency, Batteries, Medical, Textiles).
+
+## Hackathon Prize Strategy & Architecture
+
+To maximize our chances of winning the **AI Dev Days Hackathon**, this architecture actively targets the following categories:
+
+> [!IMPORTANT]
+> **1. Grand Prize (AI Applications) & Best Enterprise Solution**
+> We solve a massive B2B problem (importation laws & safety constraints) using enterprise-grade grounding and security to prevent hallucination.
+> 
+> **2. Best Use of Microsoft Foundry**
+> Our core orchestrator uses Foundry to securely deploy and manage our LLMs (`gpt-4o-mini`, `text-embedding-3-small`).
+> 
+> **3. Best Azure Integration**
+> The entire stack is cloud-native Azure. The React frontend is hosted on **Azure App Service**, the Python backend on **Azure Container Apps**, and the vector database in **Azure AI Search**.
+> 
+> **4. Best Multi-Agent System**
+> We use Microsoft's Agent Framework (Semantic Kernel) to build a sophisticated Hybrid Swarm. The system orchestrates multiple specialized agents (Researcher, Web Crawler, and Compliance Assessor) and equips them with custom tools.
+
+---
+
+## The Hybrid RAG & Multi-Agent Flow
+
+Instead of a single LLM call, Semantic Kernel will coordinate a swarm of agents:
+
+1. **User asks a question:** *"What are the telecom certification requirements for importing 5GHz routers into Brazil?"*
+2. **The Assessor Agent:** Evaluates the question and determines the required domains (e.g., Telecom, Brazil, Hardware).
+3. **The Researcher Agent (Primary RAG):** 
+   - Uses `text-embedding-3-small` to convert the question into a vector.
+   - Queries **Azure AI Search** to find the most relevant chunks from pre-ingested, localized PDFs (e.g., ANATEL guidelines).
+4. **The Web Crawler Agent (Fallback / Real-Time Tool):**
+   - If the Researcher Agent determines the Azure AI Search database does not contain the answer, or if the laws changed recently, it triggers the Web Crawler Agent.
+   - This agent generates specific search queries, scrapes live text from official government websites using Python, and feeds the relevant text back into the system.
+5. **Generation & Review:** The Assessor Agent injects the retrieved text (from the database or the web scraper) into a prompt, allowing the `gpt-4o-mini` model to generate a final, grounded answer. 
+6. **Response:** The answer, along with strict citations of the legal source, is streamed back to the React UI.
+
+---
+
+## 3. Data Ingestion Strategy (The "Knowledge Base")
+
+To make this chatbot actually work, we need real compliance data.
+
+**Phase 1: Local PDF Ingestion (Proof of Concept)**
+We will build a pipeline to parse, chunk, and embed official compliance PDFs (FCC, CE, etc.). This populates the Azure AI Search database for the primary Researcher Agent.
+
+**Phase 2: The Live Web Crawler Agent**
+We will build a Semantic Kernel plugin that acts as a live web scraper tool, enabling the Swarm to pull regulatory updates directly from government sites in real-time.
+
+---
+
+## 4. Technology Stack Summary
+
+- **Frontend:** React (Premium, ChatGPT-style chat UI).
+- **Backend API:** FastAPI (High-performance, async-native Python web framework).
+- **Agent Orchestrator:** Semantic Kernel (Microsoft Agent Framework).
+- **Vector Database:** Azure AI Search.
+- **LLMs:** Azure OpenAI via Microsoft Foundry (`gpt-4o-mini`, `text-embedding-3-small`).
+- **Cloud Infrastructure:** Azure App Service (Frontend) & Azure Container Apps (Backend).
+- **Domain:** AWS Route 53 (`compliance.chat`).
+
+---
+
+## User Review Required
+- [ ] **Data Source:** Do you already have a collection of PDFs or documents containing these regulations, or do we need to build a web scraper to pull them from government sites?
+- [ ] **Backend Language:** Are you comfortable using Python for the backend logic (using Semantic Kernel / LangChain) and perhaps a lightweight framework like FastAPI or Flask?
+- [ ] **Frontend Tech:** Do you prefer a specific frontend framework (React, simple HTML/JS, Streamlit) for the chat interface?

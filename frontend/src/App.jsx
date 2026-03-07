@@ -12,10 +12,12 @@ import {
   FileText,
   AlertTriangle,
   Globe,
-  LogOut
+  LogOut,
+  CreditCard
 } from 'lucide-react';
 import { useMsal, AuthenticatedTemplate, UnauthenticatedTemplate } from '@azure/msal-react';
 import { loginRequest } from './authConfig';
+import PricingModal from './PricingModal';
 import './App.css';
 
 function App() {
@@ -33,6 +35,12 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Quota state
+  const [tokensRemaining, setTokensRemaining] = useState(null);
+  const [tokensLimit, setTokensLimit] = useState(null);
+  const [tokensTier, setTokensTier] = useState('free');
+  const [showPricing, setShowPricing] = useState(false);
 
   const { instance, accounts } = useMsal();
   const activeAccount = accounts[0];
@@ -122,6 +130,14 @@ function App() {
         }
       });
 
+      // Update quota state from response headers
+      const remaining = response.headers['x-tokens-remaining'];
+      const limit = response.headers['x-tokens-limit'];
+      const tier = response.headers['x-tokens-tier'];
+      if (remaining !== undefined) setTokensRemaining(parseInt(remaining, 10));
+      if (limit !== undefined && limit !== 'unlimited') setTokensLimit(parseInt(limit, 10));
+      if (tier) setTokensTier(tier);
+
       const aiMessage = {
         id: Date.now() + 1,
         role: 'assistant',
@@ -130,13 +146,30 @@ function App() {
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      const errorMessage = {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: "I'm sorry, I encountered an error while analyzing your request and document. " + (error.response?.data?.detail || error.message),
-        timestamp: new Date().toISOString()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      // Handle quota exceeded (HTTP 429)
+      if (error.response?.status === 429) {
+        const data = error.response.data;
+        setTokensTier(data.tier || 'free');
+        setTokensRemaining(0);
+        setTokensLimit(data.daily_limit || 10000);
+        setShowPricing(true);
+
+        const quotaMessage = {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: "⚠️ You've reached your daily token limit. Please upgrade your subscription to continue using compliance.chat.",
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, quotaMessage]);
+      } else {
+        const errorMessage = {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: "I'm sorry, I encountered an error while analyzing your request and document. " + (error.response?.data?.detail || error.message),
+          timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setIsTyping(false);
     }
@@ -193,6 +226,11 @@ function App() {
                 <span>Web Crawler</span>
                 <span className="badge-live">Live</span>
               </a>
+              <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); setShowPricing(true); }}>
+                <CreditCard size={18} />
+                <span>Subscription</span>
+                <span className="badge">{tokensTier.charAt(0).toUpperCase() + tokensTier.slice(1)}</span>
+              </a>
             </nav>
           </div>
 
@@ -230,6 +268,25 @@ function App() {
                 </div>
               </div>
             </div>
+            {tokensLimit && tokensRemaining !== null && (
+              <div className="token-budget-bar">
+                <div className="token-budget-info">
+                  <span className="token-budget-label">{tokensTier.toUpperCase()}</span>
+                  <span className="token-budget-count">
+                    {tokensRemaining < 0 ? '∞' : tokensRemaining.toLocaleString()} / {tokensLimit < 0 ? '∞' : tokensLimit.toLocaleString()}
+                  </span>
+                </div>
+                <div className="token-budget-track">
+                  <div
+                    className="token-budget-fill"
+                    style={{
+                      width: tokensLimit > 0 ? `${Math.min(100, ((tokensLimit - tokensRemaining) / tokensLimit) * 100)}%` : '0%',
+                      background: tokensRemaining <= 0 ? '#ef4444' : tokensRemaining < tokensLimit * 0.2 ? '#f59e0b' : '#6366f1'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             <button className="glass-button outline-button">
               <AlertTriangle size={16} />
               New Assessment
@@ -340,6 +397,32 @@ function App() {
             </div>
           </div>
         </main>
+
+        <PricingModal
+          isOpen={showPricing}
+          onClose={() => setShowPricing(false)}
+          currentTier={tokensTier}
+          onSubscribe={async (tier) => {
+            try {
+              let authHeaderToken = '';
+              if (activeAccount) {
+                const tokenResponse = await instance.acquireTokenSilent({
+                  ...loginRequest,
+                  account: activeAccount
+                });
+                authHeaderToken = tokenResponse.idToken;
+              }
+              const response = await axios.post('http://localhost:8000/api/billing/checkout', { tier }, {
+                headers: { 'Authorization': `Bearer ${authHeaderToken}` }
+              });
+              if (response.data.checkout_url) {
+                window.location.href = response.data.checkout_url;
+              }
+            } catch (err) {
+              console.error('Checkout error:', err);
+            }
+          }}
+        />
       </AuthenticatedTemplate>
     </div>
   );

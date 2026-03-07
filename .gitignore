@@ -102,6 +102,7 @@ Thumbs.db
 
 # Data 
 backend/data/chroma_db/
+backend/data/user_usage.json
 **/*.pdf
 
 # AI Planning Documents

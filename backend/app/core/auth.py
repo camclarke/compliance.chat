@@ -18,17 +18,11 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     """
     Validates the Bearer token sent in the Authorization header against
     Microsoft Entra External ID's public signing keys.
+    
+    Returns a dict with: sub, name, email (extracted from JWT claims).
     """
     token = credentials.credentials
     try:
-        # Debug: Print the unverified headers and payload to see the issuer and audience!
-        unverified_headers = jwt.get_unverified_header(token)
-        unverified_payload = jwt.decode(token, options={"verify_signature": False})
-        print("====== DEBUG: INCOMING JWT ======")
-        print(f"Headers: {unverified_headers}")
-        print(f"Payload: {unverified_payload}")
-        print("=================================")
-
         # Fetch the signing key from the JWKS matching the token's kid header
         signing_key = jwks_client.get_signing_key_from_jwt(token)
         
@@ -40,7 +34,14 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             audience=CLIENT_ID,
             issuer=f"https://{TENANT_ID}.ciamlogin.com/{TENANT_ID}/v2.0"
         )
-        return payload
+
+        # Return structured user info
+        return {
+            "sub": payload.get("sub", ""),
+            "name": payload.get("name", ""),
+            "email": payload.get("email", payload.get("preferred_username", "")),
+            "raw": payload,
+        }
 
     except jwt.exceptions.PyJWKClientError as error:
         print(f"JWT PyJWKClientError: {error}")

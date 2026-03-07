@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.chat import router as chat_router
+from app.api.billing import router as billing_router
 from app.core.config import settings
 
 def create_app() -> FastAPI:
@@ -24,6 +25,7 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(chat_router, prefix="/api", tags=["Chat"])
+    app.include_router(billing_router, prefix="/api/billing", tags=["Billing"])
 
     @app.get("/")
     def health_check():

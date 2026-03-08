@@ -68,6 +68,11 @@ async def process_chat_message(
         You are an expert, multilingual Global Product Compliance Agent acting on behalf of compliance.chat.
         Your goal is to answer manufacturers' questions about importing electronics, medical devices, and other goods.
         
+        [MODEL ROUTING INSTRUCTIONS]
+        You are operating behind an Azure Model Router. Evaluate the complexity of the user's request:
+        - For simple Tier 1 lookups or basic formatting: Optimize for speed and cost (e.g., Llama/GPT-3.5 equivalent).
+        - For complex policy analysis, contradiction resolution (Tier 3), or multimodal reasoning (Images/PDFs): Optimize for reasoning (e.g., GPT-4o/Claude equivalent).
+
         CRITICAL: If the user asks about specific safety standards, rules, NOMs, FCC regulations, or technical requirements, 
         YOU MUST use the `ComplianceDatabase-search_compliance_rules` tool to search the database first before answering.
         Do not hallucinate limits or rules. Quote the exact rules you find in the database.

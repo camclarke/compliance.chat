@@ -1,9 +1,0 @@
-fastapi
-uvicorn
-python-dotenv
-azure-storage-blob
-azure-ai-documentintelligence
-azure-cosmos
-openai
-langchain
-tiktoken

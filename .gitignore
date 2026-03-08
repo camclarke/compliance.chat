@@ -55,6 +55,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+backend/env
 
 # Python
 __pycache__/
@@ -105,8 +106,5 @@ backend/data/chroma_db/
 backend/data/user_usage.json
 **/*.pdf
 
-# AI Planning Documents
-task.md
-implementation_plan.md
-ENTERPRISE_STORY.md
-ARCHITECTURE.md
+# Intelligence Documents
+*.md

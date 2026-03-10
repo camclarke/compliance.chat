@@ -44,7 +44,7 @@ class HistoryService:
         items = list(self.container.query_items(
             query=query,
             parameters=parameters,
-            enable_cross_partition_query=False
+            enable_cross_partition_query=True
         ))
         return items
 
@@ -54,9 +54,16 @@ class HistoryService:
             return None
             
         try:
-            item = self.container.read_item(item=thread_id, partition_key=user_id)
-            return ChatThreadModel(**item)
-        except exceptions.CosmosResourceNotFoundError:
+            query = "SELECT * FROM c WHERE c.id = @thread_id AND c.partition_key = @user_id"
+            parameters = [{"name": "@thread_id", "value": thread_id}, {"name": "@user_id", "value": user_id}]
+            items = list(self.container.query_items(
+                query=query, parameters=parameters, enable_cross_partition_query=True
+            ))
+            if not items:
+                return None
+            return ChatThreadModel(**items[0])
+        except Exception as e:
+            logger.error(f"Error fetching thread: {e}")
             return None
 
     def save_thread(self, thread: ChatThreadModel) -> ChatThreadModel:

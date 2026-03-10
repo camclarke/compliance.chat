@@ -437,20 +437,8 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
           </div>
           
           {/* Metadata Footer */}
-          <div className="flex flex-col sm:flex-row items-center justify-between mt-3 px-2 gap-2 sm:gap-0">
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 lg:gap-4 text-[10px] lg:text-xs text-slate-500">
-              <button className="flex items-center gap-1.5 hover:text-slate-700 transition-colors">
-                <FileText size={14} />
-                <span>Knowledge Base</span>
-              </button>
-              <span className="hidden sm:inline w-1 h-1 rounded-full bg-slate-300"></span>
-              <button className="flex items-center gap-1.5 hover:text-slate-700 transition-colors">
-                <ShieldCheck size={14} />
-                <span>Strict Mode</span>
-              </button>
-            </div>
+          <div className="flex flex-col sm:flex-row items-center justify-end mt-3 px-2 gap-2 sm:gap-0">
             <div className="flex items-center gap-1.5 text-[10px] text-slate-400 uppercase tracking-wider font-medium">
-              <Info size={12} />
               {currentModel}
             </div>
           </div>

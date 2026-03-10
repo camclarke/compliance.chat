@@ -20,10 +20,12 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
     id: '1',
     role: 'assistant',
     content: 'Hello! I am your Global Product Compliance Agent. I have full access to our proprietary database of importation laws, NOMs, and FCC regulations.\n\nHow can I accelerate your product launch today?',
-    timestamp: new Date()
+    timestamp: new Date(),
+    model: 'gpt-4o'
   };
 
   const [messages, setMessages] = useState<ChatMessage[]>([initialMessage]);
+  const [currentModel, setCurrentModel] = useState<string>('gpt-4o');
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -158,9 +160,11 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: response.data.reply,
-        timestamp: new Date()
+        timestamp: new Date(),
+        model: response.data.model || 'gpt-4o'
       };
       setMessages(prev => [...prev, aiMessage]);
+      setCurrentModel(aiMessage.model || 'gpt-4o');
 
       if (!activeThreadId && response.data.thread_id && setActiveThreadId) {
         setActiveThreadId(response.data.thread_id);
@@ -447,7 +451,7 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
             </div>
             <div className="flex items-center gap-1.5 text-[10px] text-slate-400 uppercase tracking-wider font-medium">
               <Info size={12} />
-              gpt‑5.1
+              {currentModel}
             </div>
           </div>
         </div>

@@ -114,11 +114,16 @@ async def chat_endpoint(
         # --- TODO: pass recent history into process_chat_message if desired, 
         # but for now we just keep the standalone prompt for simplicity
         result = await process_chat_message(kernel, message, file_content, file_name, file_content_type)
+        if not result:
+             raise Exception("Empty response from AI")
 
         # ── Record actual token usage ─────────────────────────
         tokens_consumed = 0
+        model_name = "gpt-4o" # default fallback
+        
         if hasattr(result, 'metadata') and result.metadata:
             usage_meta = result.metadata.get("usage")
+            model_name = result.metadata.get("model", "gpt-4o")
             if usage_meta:
                 tokens_consumed = getattr(usage_meta, "total_tokens", 0)
                 if not tokens_consumed:
@@ -127,12 +132,11 @@ async def chat_endpoint(
                     tokens_consumed = prompt_tokens + completion_tokens
 
         # Fallback estimate if metadata unavailable
+        reply_text = str(result)
         if tokens_consumed == 0:
-            tokens_consumed = max(100, len(message) // 2 + len(str(result)) // 2)
+            tokens_consumed = max(100, len(message) // 2 + len(reply_text) // 2)
 
         new_remaining = usage_tracker.record_usage(user_sub, tokens_consumed)
-
-        reply_text = str(result)
 
         # Build assistant message model
         ai_msg = ChatMessageModel(
@@ -151,7 +155,8 @@ async def chat_endpoint(
             content={
                 "reply": reply_text,
                 "sources": ["Multimodal Swarm Response"],
-                "thread_id": saved_thread.id
+                "thread_id": saved_thread.id,
+                "model": model_name
             },
             headers={
                 "X-Tokens-Remaining": str(new_remaining),

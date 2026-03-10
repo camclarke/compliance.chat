@@ -17,4 +17,5 @@ export interface ChatMessage {
   fileAttachment?: string;
   sources?: Source[];
   confidence?: 'high' | 'medium' | 'low';
+  model?: string;
 }

@@ -125,10 +125,10 @@ async def process_chat_message(
             kernel=kernel
         )
         
-        return str(result)
+        return result
         
     except Exception as e:
         logger.error(f"Error processing chat message: {e}")
         import traceback
         traceback.print_exc()
-        return "I apologize, but I encountered an internal error while trying to process your request."
+        return None

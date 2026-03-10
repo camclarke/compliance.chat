@@ -57,7 +57,7 @@ class ComplianceRetrievalPlugin:
         if tier2_result:
             print("[RAG Engine] Match found in Tier 2 (Government Site).")
             # Trigger lazy indexing background task
-            # self.crawler_service.lazy_index_background_task({"attribution_id": "Tier2_Source", "data": tier2_result})
+            asyncio.create_task(self.crawler_service.lazy_index_background_task({"attribution_id": "Tier2_Source", "data": tier2_result}))
             return f"Source: Direct Government Source (Tier 2 Workflow)\n\n{tier2_result}"
             
         print("[RAG Engine] Tier 2 failed. Falling back to Tier 3 (Cross-Referencing)...")
@@ -85,7 +85,10 @@ class ComplianceRetrievalPlugin:
                     bulletin += f"- {key}: {val}\n"
                 
                 # Trigger lazy indexing background task with washed data
-                # self.crawler_service.lazy_index_background_task(washed_data)
+                asyncio.create_task(self.crawler_service.lazy_index_background_task({
+                    "attribution_id": washed_data['attribution_id'],
+                    "data": bulletin
+                }))
                 
                 return bulletin
                 

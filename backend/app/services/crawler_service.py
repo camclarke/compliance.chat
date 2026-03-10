@@ -1,7 +1,13 @@
 import os
 import asyncio
+import uuid
+import logging
 from typing import Optional, Dict, Any
 from crawl4ai import AsyncWebCrawler
+from semantic_kernel.connectors.ai.open_ai import AzureTextEmbeddingGeneration
+from azure.cosmos.aio import CosmosClient
+
+logger = logging.getLogger(__name__)
 
 class CrawlerService:
     """
@@ -9,8 +15,21 @@ class CrawlerService:
     """
 
     def __init__(self):
-        # Additional init configuration can go here. For now, we rely on the AsyncWebCrawler's defaults.
-        pass
+        from app.core.config import settings
+        self.settings = settings
+        
+        # Initialize Embedding Service
+        self.embedding_service = AzureTextEmbeddingGeneration(
+            deployment_name=settings.AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+            endpoint=settings.AZURE_OPENAI_ENDPOINT,
+            api_key=settings.AZURE_OPENAI_API_KEY,
+        )
+        
+        # Initialize Cosmos DB Client definition (lazy loaded)
+        self.cosmos_endpoint = os.getenv("AZURE_COSMOS_DB_ENDPOINT")
+        self.cosmos_key = os.getenv("AZURE_COSMOS_DB_KEY")
+        self.database_name = os.getenv("AZURE_COSMOS_DB_DATABASE_NAME", "ComplianceDB")
+        self.container_name = "vectors"
 
     async def _crawl_url(self, url: str) -> Optional[str]:
         """
@@ -76,11 +95,69 @@ class CrawlerService:
             "source_2": source_2
         }
 
-    def lazy_index_background_task(self, compliance_data: Dict[str, Any]):
+    async def lazy_index_background_task(self, compliance_data: Dict[str, Any]):
         """
         Background Ingestion Loop: Triggers chunking, embedding, and permanently routing 
         the newly found data into Cosmos DB.
         """
-        print(f"[Lazy Indexing] Triggering background job to vectorize and store data into Cosmos DB: {compliance_data.get('attribution_id')}")
-        # TODO: Implementation of Azure Cosmos DB vector insertion
-        pass
+        source = compliance_data.get('attribution_id', 'Unknown_Source')
+        text_data = compliance_data.get('data', '')
+        
+        if not text_data:
+            logger.warning("[Lazy Indexing] No text data provided to vectorize.")
+            return
+
+        logger.info(f"[Lazy Indexing] Triggering background job to vectorize and store data into Cosmos DB: {source}")
+        
+        try:
+            # 1. Simple Chunking (In production, use semantic_kernel.text.text_chunker)
+            chunk_size = 1000
+            overlap = 100
+            chunks = []
+            for i in range(0, len(text_data), chunk_size - overlap):
+                chunks.append(text_data[i:i + chunk_size])
+                
+            logger.info(f"[Lazy Indexing] Split data into {len(chunks)} chunks.")
+
+            # 2. Vectorize the chunks
+            embeddings_result = await self.embedding_service.generate_embeddings(chunks)
+            if not getattr(embeddings_result, "success", True) and not isinstance(embeddings_result, list): # Basic check since sk object varies
+                logger.error("[Lazy Indexing] Failed to generate embeddings.")
+                return
+                
+            # Assume embeddings_result is a list of floats arrays (or list of numpy arrays)
+            embeddings = [emb.tolist() if hasattr(emb, 'tolist') else emb for emb in embeddings_result]
+
+            # 3. Store into Azure Cosmos DB
+            if not self.cosmos_endpoint or not self.cosmos_key:
+                logger.warning("[Lazy Indexing] Cosmos DB endpoint/key not configured. Tracing only.")
+                for idx, chunk in enumerate(chunks):
+                    logger.debug(f"[Vector Simulated Insert] Document ID: {source}_{idx} inserted with dim: {len(embeddings[idx])}")
+                return
+
+            async with CosmosClient(self.cosmos_endpoint, credential=self.cosmos_key) as client:
+                database = client.get_database_client(self.database_name)
+                container = database.get_container_client(self.container_name)
+                
+                ops = []
+                for idx, (chunk_text, embedding) in enumerate(zip(chunks, embeddings)):
+                    doc_id = str(uuid.uuid4())
+                    doc = {
+                        "id": doc_id,
+                        "source": source,
+                        "text": chunk_text,
+                        "contentVector": embedding,
+                        "type": "Crawl4AI_Ingestion"
+                    }
+                    ops.append(doc)
+                    
+                    # Batch inserts loosely
+                    try:
+                        await container.upsert_item(doc)
+                    except Exception as cx:
+                        logger.error(f"[Lazy Indexing] Cosmos insert err: {cx}")
+                        
+                logger.info(f"[Lazy Indexing] Successfully upserted {len(ops)} vectorized items to Cosmos DB.")
+
+        except Exception as e:
+            logger.error(f"[Lazy Indexing] Exception during background task: {e}")

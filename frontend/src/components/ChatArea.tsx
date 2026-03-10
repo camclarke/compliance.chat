@@ -4,6 +4,7 @@ import { ChatMessage, Source } from '../types';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import { useMsal } from '@azure/msal-react';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { loginRequest } from '../authConfig';
 
 interface ChatAreaProps {
@@ -62,6 +63,10 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
           authHeaderToken = tokenResponse.idToken;
         }
       } catch (err) {
+        if (err instanceof InteractionRequiredAuthError) {
+          instance.loginRedirect(loginRequest).catch(e => console.error(e));
+          return;
+        }
         console.error("Failed to acquire token silently", err);
         return;
       }
@@ -77,7 +82,11 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
           }));
           setMessages(loadedMessages);
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err.response?.status === 401) {
+          instance.loginRedirect(loginRequest).catch(e => console.error(e));
+          return;
+        }
         console.error("Failed to load thread history", err);
       }
     };
@@ -130,6 +139,10 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
         authHeaderToken = tokenResponse.idToken;
       }
     } catch (err) {
+      if (err instanceof InteractionRequiredAuthError) {
+        instance.loginRedirect(loginRequest).catch(e => console.error(e));
+        return;
+      }
       console.error("Failed to acquire token silently", err);
     }
 
@@ -171,7 +184,10 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
       }
     } catch (error: any) {
       // Very basic handling of 429 quota inside chat stream for now
-      if (error.response?.status === 429) {
+      if (error.response?.status === 401) {
+        instance.loginRedirect(loginRequest).catch(e => console.error(e));
+        return;
+      } else if (error.response?.status === 429) {
         const errorMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',

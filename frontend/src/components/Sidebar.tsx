@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { loginRequest } from '../authConfig';
 import { useMsal } from '@azure/msal-react';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface SidebarProps {
@@ -31,6 +32,10 @@ export default function Sidebar({ isCollapsed, onClose, handleLogout, account, a
           authHeaderToken = tokenResponse.idToken;
         }
       } catch (err) {
+        if (err instanceof InteractionRequiredAuthError) {
+          instance.loginRedirect(loginRequest).catch(e => console.error(e));
+          return;
+        }
         console.error("Failed to acquire token", err);
         return;
       }
@@ -40,7 +45,11 @@ export default function Sidebar({ isCollapsed, onClose, handleLogout, account, a
           headers: { Authorization: `Bearer ${authHeaderToken}` }
         });
         setThreads(response.data.threads || []);
-      } catch (err) {
+      } catch (err: any) {
+        if (err.response?.status === 401) {
+          instance.loginRedirect(loginRequest).catch(e => console.error(e));
+          return;
+        }
         console.error("Failed to fetch threads", err);
       }
     };

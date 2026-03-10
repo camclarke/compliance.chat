@@ -14,6 +14,7 @@ export interface ChatMessage {
   role: MessageRole;
   content: string;
   timestamp: Date;
+  fileAttachment?: string;
   sources?: Source[];
   confidence?: 'high' | 'medium' | 'low';
 }

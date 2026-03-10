@@ -1,0 +1,5 @@
+{
+  "name": "compliance.chat",
+  "description": "Enterprise RAG AI Chat interface for professional compliance.",
+  "requestFramePermissions": []
+}

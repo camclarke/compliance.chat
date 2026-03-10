@@ -1,49 +1,21 @@
-import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  ShieldCheck,
-  Send,
-  Paperclip,
-  Bot,
-  User,
-  Settings,
-  Menu,
-  FileText,
-  AlertTriangle,
-  Globe,
-  LogOut,
-  CreditCard
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { useMsal, AuthenticatedTemplate, UnauthenticatedTemplate } from '@azure/msal-react';
 import { loginRequest } from './authConfig';
-import PricingModal from './PricingModal';
-import './App.css';
+import { ShieldCheck } from 'lucide-react';
+import Sidebar from './components/Sidebar';
+import ChatArea from './components/ChatArea';
+import './index.css';
 
 function App() {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      role: 'assistant',
-      content: 'Hello! I am your Global Product Compliance Agent. I have full access to our proprietary database of importation laws, NOMs, and FCC regulations.\n\nHow can I accelerate your product launch today?',
-      timestamp: new Date().toISOString()
-    }
-  ]);
-  const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const messagesEndRef = useRef(null);
-  const fileInputRef = useRef(null);
-
-  // Quota state
-  const [tokensRemaining, setTokensRemaining] = useState(null);
-  const [tokensLimit, setTokensLimit] = useState(null);
-  const [tokensTier, setTokensTier] = useState('free');
-  const [showPricing, setShowPricing] = useState(false);
-
   const { instance, accounts } = useMsal();
-  const activeAccount = accounts[0];
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+
+  useEffect(() => {
+    // On desktop, show sidebar by default
+    if (window.innerWidth >= 1024) {
+      setIsSidebarCollapsed(false);
+    }
+  }, []);
 
   const handleLogin = () => {
     instance.loginRedirect(loginRequest).catch(e => {
@@ -57,371 +29,62 @@ function App() {
     });
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
-
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  };
-
-  const removeFile = () => {
-    setSelectedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!input.trim() && !selectedFile) return;
-
-    const userMessage = {
-      id: Date.now(),
-      role: 'user',
-      content: input,
-      fileAttachment: selectedFile ? selectedFile.name : null,
-      timestamp: new Date().toISOString()
-    };
-
-    // Attempt to silently acquire the Entra ID token
-    let authHeaderToken = '';
-    try {
-      if (activeAccount) {
-        const tokenResponse = await instance.acquireTokenSilent({
-          ...loginRequest,
-          account: activeAccount
-        });
-        // Use ID Token instead of Access Token because we haven't exposed a custom API Scope in Azure.
-        // The ID token proves who the user is and can be validated by our FastAPI backend via the tenant JWKS.
-        authHeaderToken = tokenResponse.idToken;
-      }
-    } catch (err) {
-      console.error("Failed to acquire token silently", err);
-    }
-
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsTyping(true);
-
-    // Create form data to support file uploads
-    const formData = new FormData();
-    formData.append('message', userMessage.content || '');
-    if (selectedFile) {
-      formData.append('file', selectedFile);
-    }
-
-    // Clear the selected file immediately after showing it in UI
-    const fileToUpload = selectedFile;
-    setSelectedFile(null);
-
-    try {
-      const response = await axios.post('http://localhost:8000/api/chat', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${authHeaderToken}`
-        }
-      });
-
-      // Update quota state from response headers
-      const remaining = response.headers['x-tokens-remaining'];
-      const limit = response.headers['x-tokens-limit'];
-      const tier = response.headers['x-tokens-tier'];
-      if (remaining !== undefined) setTokensRemaining(parseInt(remaining, 10));
-      if (limit !== undefined && limit !== 'unlimited') setTokensLimit(parseInt(limit, 10));
-      if (tier) setTokensTier(tier);
-
-      const aiMessage = {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: response.data.reply,
-        timestamp: new Date().toISOString()
-      };
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      // Handle quota exceeded (HTTP 429)
-      if (error.response?.status === 429) {
-        const data = error.response.data;
-        setTokensTier(data.tier || 'free');
-        setTokensRemaining(0);
-        setTokensLimit(data.daily_limit || 10000);
-        setShowPricing(true);
-
-        const quotaMessage = {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: "⚠️ You've reached your daily token limit. Please upgrade your subscription to continue using compliance.chat.",
-          timestamp: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, quotaMessage]);
-      } else {
-        const errorMessage = {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: "I'm sorry, I encountered an error while analyzing your request and document. " + (error.response?.data?.detail || error.message),
-          timestamp: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, errorMessage]);
-      }
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
   return (
-    <div className="app-container">
+    <div className="flex h-screen w-full bg-white font-sans overflow-hidden">
       <UnauthenticatedTemplate>
-        <div className="login-screen">
-          <div className="login-card glass-panel">
-            <div className="logo-icon animate-pulse-glow" style={{ marginBottom: '1rem', width: '64px', height: '64px' }}>
-              <ShieldCheck size={40} color="#6366f1" />
+        <div className="w-full flex items-center justify-center bg-slate-50 relative">
+          <div className="absolute inset-0 z-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-slate-100 opacity-80" />
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
+            <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
+            <div className="absolute -bottom-8 left-1/2 w-96 h-96 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000" />
+          </div>
+
+          <div className="relative z-10 max-w-md w-full p-8 md:p-10 bg-white/70 backdrop-blur-xl rounded-3xl shadow-xl border border-white/40 group overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            
+            <div className="relative flex flex-col items-centertext-center">
+              <div className="w-20 h-20 mb-6 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-0.5 shadow-lg shadow-indigo-500/20">
+                <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center">
+                  <ShieldCheck size={40} className="text-indigo-600" />
+                </div>
+              </div>
+
+              <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 mb-2">
+                compliance<span className="text-indigo-600">.chat</span>
+              </h1>
+              <p className="text-slate-500 mb-8 font-medium">Enterprise Regulatory Assessment Swarm</p>
+
+              <button 
+                onClick={handleLogin}
+                className="w-full relative py-3 px-6 rounded-xl font-semibold text-white overflow-hidden group/btn shadow-md hover:shadow-lg transition-all"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 transition-transform duration-300 group-hover/btn:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                  Sign In to Continue
+                  <svg className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </span>
+              </button>
             </div>
-            <h1>compliance.chat</h1>
-            <p>Enterprise Regulatory Assessment Swarm</p>
-            <button className="login-button" onClick={handleLogin}>
-              Sign In to Continue
-            </button>
           </div>
         </div>
       </UnauthenticatedTemplate>
 
       <AuthenticatedTemplate>
-        {/* Mobile Sidebar Overlay */}
-        {isSidebarOpen && (
-          <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)}></div>
-        )}
-
-        {/* Sidebar */}
-        <aside className={`sidebar glass-panel ${isSidebarOpen ? 'open' : ''}`}>
-          <div className="sidebar-header">
-            <div className="logo-container">
-              <div className="logo-icon animate-pulse-glow">
-                <ShieldCheck size={24} color="#6366f1" />
-              </div>
-              <h1 className="logo-text">compliance.chat</h1>
-            </div>
-          </div>
-
-          <div className="sidebar-content">
-            <h3 className="nav-section-title">Active Swarm</h3>
-            <nav className="nav-list">
-              <a href="#" className="nav-item active">
-                <Bot size={18} />
-                <span>Assessor Agent</span>
-              </a>
-              <a href="#" className="nav-item">
-                <FileText size={18} />
-                <span>RAG Database</span>
-                <span className="badge">1.5k Chunks</span>
-              </a>
-              <a href="#" className="nav-item">
-                <Globe size={18} />
-                <span>Web Crawler</span>
-                <span className="badge-live">Live</span>
-              </a>
-              <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); setShowPricing(true); }}>
-                <CreditCard size={18} />
-                <span>Subscription</span>
-                <span className="badge">{tokensTier.charAt(0).toUpperCase() + tokensTier.slice(1)}</span>
-              </a>
-            </nav>
-          </div>
-
-          <div className="sidebar-footer">
-            <button className="glass-button icon-button" onClick={handleLogout} title="Sign Out">
-              <LogOut size={20} />
-            </button>
-            <div className="user-profile">
-              <div className="avatar">
-                <User size={16} />
-              </div>
-              <div className="user-info">
-                <span className="user-name">{activeAccount?.name || 'Engineer'}</span>
-                <span className="user-role">{activeAccount?.username || 'user'}</span>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main Chat Area */}
-        <main className="main-content">
-          <header className="chat-header glass-panel">
-            <div className="header-title">
-              <button
-                className="mobile-menu-btn glass-button icon-button"
-                onClick={() => setIsSidebarOpen(true)}
-              >
-                <Menu size={20} />
-              </button>
-              <div className="header-text-group">
-                <h2>Regulatory Assessment</h2>
-                <div className="status-indicator">
-                  <span className="status-dot"></span>
-                  <span className="status-text">Swarm Ready</span>
-                </div>
-              </div>
-            </div>
-            {tokensLimit && tokensRemaining !== null && (
-              <div className="token-budget-bar">
-                <div className="token-budget-info">
-                  <span className="token-budget-label">{tokensTier.toUpperCase()}</span>
-                  <span className="token-budget-count">
-                    {tokensRemaining < 0 ? '∞' : tokensRemaining.toLocaleString()} / {tokensLimit < 0 ? '∞' : tokensLimit.toLocaleString()}
-                  </span>
-                </div>
-                <div className="token-budget-track">
-                  <div
-                    className="token-budget-fill"
-                    style={{
-                      width: tokensLimit > 0 ? `${Math.min(100, ((tokensLimit - tokensRemaining) / tokensLimit) * 100)}%` : '0%',
-                      background: tokensRemaining <= 0 ? '#ef4444' : tokensRemaining < tokensLimit * 0.2 ? '#f59e0b' : '#6366f1'
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-            <button className="glass-button outline-button">
-              <AlertTriangle size={16} />
-              New Assessment
-            </button>
-          </header>
-
-          <div className="chat-scroll-area">
-            <div className="messages-container">
-              <AnimatePresence>
-                {messages.map((msg) => (
-                  <motion.div
-                    key={msg.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                    className={`message-wrapper ${msg.role === 'user' ? 'message-user' : 'message-ai'}`}
-                  >
-                    <div className="message-avatar">
-                      {msg.role === 'user' ? <User size={16} /> : <ShieldCheck size={18} color="#fff" />}
-                    </div>
-                    <div className={`message-bubble ${msg.role === 'user' ? 'bubble-user' : 'bubble-ai glass-panel'}`}>
-                      {msg.fileAttachment && (
-                        <div className="message-attachment">
-                          <Paperclip size={14} />
-                          <span>{msg.fileAttachment}</span>
-                        </div>
-                      )}
-                      <div className="prose">
-                        {msg.content.split('\n').map((line, i) => (
-                          <p key={i}>{line}</p>
-                        ))}
-                      </div>
-                      <div className="message-timestamp">
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              {isTyping && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="message-wrapper message-ai"
-                >
-                  <div className="message-avatar">
-                    <Bot size={18} color="#fff" />
-                  </div>
-                  <div className="message-bubble bubble-ai glass-panel typing-indicator">
-                    <span className="dot"></span>
-                    <span className="dot"></span>
-                    <span className="dot"></span>
-                  </div>
-                </motion.div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
-
-          <div className="chat-input-area">
-            {selectedFile && (
-              <div className="file-preview-pill">
-                <FileText size={14} />
-                <span className="file-name">{selectedFile.name}</span>
-                <button type="button" className="remove-file-btn" onClick={removeFile}>&times;</button>
-              </div>
-            )}
-            <form className="input-form glass-panel" onSubmit={handleSubmit}>
-              <input
-                type="file"
-                ref={fileInputRef}
-                style={{ display: 'none' }}
-                onChange={handleFileSelect}
-                accept="application/pdf,image/png,image/jpeg,image/jpg"
-              />
-              <button
-                type="button"
-                className="attachment-btn"
-                title="Upload Specs (PDF/Image)"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Paperclip size={20} />
-              </button>
-              <textarea
-                className="chat-textarea"
-                placeholder="Ask about FCC, NOMs, CE requirements, or drop a spec sheet here..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(e);
-                  }
-                }}
-                rows={1}
-              />
-              <button
-                type="submit"
-                className={`send-button ${(input.trim() || selectedFile) ? 'active' : ''}`}
-                disabled={!input.trim() && !selectedFile}
-              >
-                <Send size={18} />
-              </button>
-            </form>
-            <div className="input-footer">
-              compliance.chat can make mistakes. Verify critical regulatory assertions with official documentation.
-            </div>
-          </div>
-        </main>
-
-        <PricingModal
-          isOpen={showPricing}
-          onClose={() => setShowPricing(false)}
-          currentTier={tokensTier}
-          onSubscribe={async (tier) => {
-            try {
-              let authHeaderToken = '';
-              if (activeAccount) {
-                const tokenResponse = await instance.acquireTokenSilent({
-                  ...loginRequest,
-                  account: activeAccount
-                });
-                authHeaderToken = tokenResponse.idToken;
-              }
-              const response = await axios.post('http://localhost:8000/api/billing/checkout', { tier }, {
-                headers: { 'Authorization': `Bearer ${authHeaderToken}` }
-              });
-              if (response.data.checkout_url) {
-                window.location.href = response.data.checkout_url;
-              }
-            } catch (err) {
-              console.error('Checkout error:', err);
-            }
-          }}
+        {/* Pass down mocked methods and state */}
+        <Sidebar 
+          isCollapsed={isSidebarCollapsed} 
+          onClose={() => setIsSidebarCollapsed(true)}
+          handleLogout={handleLogout}
+        />
+        <ChatArea 
+          isSidebarCollapsed={isSidebarCollapsed} 
+          toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+          handleLogout={handleLogout}
+          account={accounts[0]}
         />
       </AuthenticatedTemplate>
     </div>

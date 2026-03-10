@@ -15,6 +15,12 @@ class Settings:
     AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", "model-router")
     AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-small")
 
+    # Azure Cosmos DB (Chat History)
+    AZURE_COSMOS_ENDPOINT = os.getenv("AZURE_COSMOS_ENDPOINT", "")
+    AZURE_COSMOS_KEY = os.getenv("AZURE_COSMOS_KEY", "")
+    AZURE_COSMOS_DATABASE = os.getenv("AZURE_COSMOS_DATABASE", "ComplianceDB")
+    AZURE_COSMOS_CONTAINER = os.getenv("AZURE_COSMOS_CONTAINER", "ChatHistory")
+
     # Billing / Dodo Payments
     DODO_PAYMENTS_API_KEY = os.getenv("DODO_PAYMENTS_API_KEY", "")
     DODO_WEBHOOK_SECRET = os.getenv("DODO_WEBHOOK_SECRET", "")

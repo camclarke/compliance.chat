@@ -1,15 +1,52 @@
 import { Plus, MessageSquare, ShieldCheck, Settings, LogOut, MoreVertical, Sun, Moon } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { loginRequest } from '../authConfig';
+import { useMsal } from '@azure/msal-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface SidebarProps {
   isCollapsed: boolean;
   onClose?: () => void;
   handleLogout?: () => void;
+  account?: any;
+  activeThreadId?: string | null;
+  setActiveThreadId?: (id: string | null) => void;
 }
 
-export default function Sidebar({ isCollapsed, onClose, handleLogout }: SidebarProps) {
+export default function Sidebar({ isCollapsed, onClose, handleLogout, account, activeThreadId, setActiveThreadId }: SidebarProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [threads, setThreads] = useState<any[]>([]);
+  const { instance } = useMsal();
+
+  useEffect(() => {
+    const fetchThreads = async () => {
+      let authHeaderToken = '';
+      try {
+        if (account) {
+          const tokenResponse = await instance.acquireTokenSilent({
+            ...loginRequest,
+            account: account
+          });
+          authHeaderToken = tokenResponse.idToken;
+        }
+      } catch (err) {
+        console.error("Failed to acquire token", err);
+        return;
+      }
+
+      try {
+        const response = await axios.get('http://localhost:8000/api/history', {
+          headers: { Authorization: `Bearer ${authHeaderToken}` }
+        });
+        setThreads(response.data.threads || []);
+      } catch (err) {
+        console.error("Failed to fetch threads", err);
+      }
+    };
+
+    fetchThreads();
+  }, [account, instance, activeThreadId]); // re-fetch when activeThreadId changes (e.g. new thread created)
 
   return (
     <>
@@ -39,7 +76,10 @@ export default function Sidebar({ isCollapsed, onClose, handleLogout }: SidebarP
         <div className="w-64 flex flex-col h-full">
           {/* New Chat Button */}
       <div className="p-4 pt-6">
-        <button className="w-full flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm">
+        <button 
+          onClick={() => setActiveThreadId?.(null)}
+          className="w-full flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
+        >
           <Plus size={16} />
           New chat
         </button>
@@ -48,59 +88,30 @@ export default function Sidebar({ isCollapsed, onClose, handleLogout }: SidebarP
       {/* Chat History */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6 custom-scrollbar">
         <div>
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Today</div>
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Recent Chats</div>
           <div className="space-y-1">
-            <button className="group w-full flex items-center justify-between px-3 py-2 rounded-md text-sm bg-slate-800 text-white transition-colors">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <MessageSquare size={14} className="shrink-0" />
-                <span className="truncate text-left">Data Retention Policy Review</span>
-              </div>
-              <div className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-slate-700 rounded-full transition-all shrink-0">
-                <MoreVertical size={14} className="text-slate-400 hover:text-white" />
-              </div>
-            </button>
-            <button className="group w-full flex items-center justify-between px-3 py-2 rounded-md text-sm text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-colors">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <MessageSquare size={14} className="shrink-0" />
-                <span className="truncate text-left">Vendor Risk Assessment</span>
-              </div>
-              <div className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-slate-700 rounded-full transition-all shrink-0">
-                <MoreVertical size={14} className="text-slate-400 hover:text-white" />
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Previous 7 Days</div>
-          <div className="space-y-1">
-            <button className="group w-full flex items-center justify-between px-3 py-2 rounded-md text-sm text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-colors">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <MessageSquare size={14} className="shrink-0" />
-                <span className="truncate text-left">Access Control Matrix</span>
-              </div>
-              <div className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-slate-700 rounded-full transition-all shrink-0">
-                <MoreVertical size={14} className="text-slate-400 hover:text-white" />
-              </div>
-            </button>
-            <button className="group w-full flex items-center justify-between px-3 py-2 rounded-md text-sm text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-colors">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <MessageSquare size={14} className="shrink-0" />
-                <span className="truncate text-left">Incident Response Plan</span>
-              </div>
-              <div className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-slate-700 rounded-full transition-all shrink-0">
-                <MoreVertical size={14} className="text-slate-400 hover:text-white" />
-              </div>
-            </button>
-            <button className="group w-full flex items-center justify-between px-3 py-2 rounded-md text-sm text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-colors">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <MessageSquare size={14} className="shrink-0" />
-                <span className="truncate text-left">Encryption Standards</span>
-              </div>
-              <div className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-slate-700 rounded-full transition-all shrink-0">
-                <MoreVertical size={14} className="text-slate-400 hover:text-white" />
-              </div>
-            </button>
+            {threads.map((thread) => (
+              <button 
+                key={thread.id}
+                onClick={() => setActiveThreadId?.(thread.id)}
+                className={`group w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                  activeThreadId === thread.id 
+                    ? 'bg-slate-800 text-white' 
+                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <MessageSquare size={14} className="shrink-0" />
+                  <span className="truncate text-left">{thread.title || 'Untitled Chat'}</span>
+                </div>
+                <div className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-slate-700 rounded-full transition-all shrink-0">
+                  <MoreVertical size={14} className="text-slate-400 hover:text-white" />
+                </div>
+              </button>
+            ))}
+            {threads.length === 0 && (
+              <div className="text-sm text-slate-500 px-3 py-2">No past threads found.</div>
+            )}
           </div>
         </div>
       </div>

@@ -11,15 +11,19 @@ interface ChatAreaProps {
   toggleSidebar: () => void;
   handleLogout?: () => void;
   account?: any;
+  activeThreadId?: string | null;
+  setActiveThreadId?: (id: string | null) => void;
 }
 
-export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogout, account }: ChatAreaProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([{
+export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogout, account, activeThreadId, setActiveThreadId }: ChatAreaProps) {
+  const initialMessage: ChatMessage = {
     id: '1',
     role: 'assistant',
     content: 'Hello! I am your Global Product Compliance Agent. I have full access to our proprietary database of importation laws, NOMs, and FCC regulations.\n\nHow can I accelerate your product launch today?',
     timestamp: new Date()
-  }]);
+  };
+
+  const [messages, setMessages] = useState<ChatMessage[]>([initialMessage]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -38,6 +42,46 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!activeThreadId) {
+        setMessages([initialMessage]);
+        return;
+      }
+
+      let authHeaderToken = '';
+      try {
+        if (account) {
+          const tokenResponse = await instance.acquireTokenSilent({
+            ...loginRequest,
+            account: account
+          });
+          authHeaderToken = tokenResponse.idToken;
+        }
+      } catch (err) {
+        console.error("Failed to acquire token silently", err);
+        return;
+      }
+
+      try {
+        const response = await axios.get(`http://localhost:8000/api/history/${activeThreadId}`, {
+          headers: { Authorization: `Bearer ${authHeaderToken}` }
+        });
+        if (response.data && response.data.messages) {
+          const loadedMessages = response.data.messages.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp)
+          }));
+          setMessages(loadedMessages);
+        }
+      } catch (err) {
+        console.error("Failed to load thread history", err);
+      }
+    };
+
+    fetchHistory();
+  }, [activeThreadId, account, instance]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -93,6 +137,9 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
 
     const formData = new FormData();
     formData.append('message', userMessage.content || '');
+    if (activeThreadId) {
+      formData.append('thread_id', activeThreadId);
+    }
     if (selectedFile) {
       formData.append('file', selectedFile);
     }
@@ -114,6 +161,10 @@ export default function ChatArea({ isSidebarCollapsed, toggleSidebar, handleLogo
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiMessage]);
+
+      if (!activeThreadId && response.data.thread_id && setActiveThreadId) {
+        setActiveThreadId(response.data.thread_id);
+      }
     } catch (error: any) {
       // Very basic handling of 429 quota inside chat stream for now
       if (error.response?.status === 429) {

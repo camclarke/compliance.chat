@@ -64,6 +64,23 @@ resource documentsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/
   }
 }
 
+// Container: Chat History
+resource chatHistoryContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
+  parent: database
+  name: 'ChatHistory'
+  properties: {
+    resource: {
+      id: 'ChatHistory'
+      partitionKey: {
+        paths: [
+          '/partition_key'
+        ]
+        kind: 'Hash'
+      }
+    }
+  }
+}
+
 output endpoint string = cosmosDbAccount.properties.documentEndpoint
 output id string = cosmosDbAccount.id
 output name string = cosmosDbAccount.name

@@ -9,6 +9,7 @@ import './index.css';
 function App() {
   const { instance, accounts } = useMsal();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [activeThreadId, setActiveThreadId] = useState(null);
 
   useEffect(() => {
     // On desktop, show sidebar by default
@@ -79,12 +80,17 @@ function App() {
           isCollapsed={isSidebarCollapsed} 
           onClose={() => setIsSidebarCollapsed(true)}
           handleLogout={handleLogout}
+          account={accounts[0]}
+          activeThreadId={activeThreadId}
+          setActiveThreadId={setActiveThreadId}
         />
         <ChatArea 
           isSidebarCollapsed={isSidebarCollapsed} 
           toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
           handleLogout={handleLogout}
           account={accounts[0]}
+          activeThreadId={activeThreadId}
+          setActiveThreadId={setActiveThreadId}
         />
       </AuthenticatedTemplate>
     </div>

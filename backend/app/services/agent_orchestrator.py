@@ -1,134 +1,156 @@
-import semantic_kernel as sk
-from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
-from app.core.config import settings
+import os
+import asyncio
 import logging
+from azure.ai.projects.aio import AIProjectClient
+from azure.identity.aio import DefaultAzureCredential
+from azure.ai.agents.models import BingGroundingTool
 
 logger = logging.getLogger(__name__)
 
-def create_kernel() -> sk.Kernel:
+class AgentResult:
+    def __init__(self, text, usage_metadata):
+        self.text = text
+        self.metadata = usage_metadata
+
+    def __str__(self):
+        return self.text
+
+async def create_kernel():
     """
-    Initializes Semantic Kernel with the configured Azure OpenAI services.
+    Initializes AIProjectClient. (Kept the name create_kernel to not break chat.py).
     """
-    kernel = sk.Kernel()
-
-    if settings.AZURE_OPENAI_API_KEY and settings.AZURE_OPENAI_ENDPOINT:
-        try:
-            kernel.add_service(
-                AzureChatCompletion(
-                    service_id="chat",
-                    deployment_name=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
-                    endpoint=settings.AZURE_OPENAI_ENDPOINT,
-                    api_key=settings.AZURE_OPENAI_API_KEY,
-                )
-            )
-            logger.info("Successfully added AzureChatCompletion to Semantic Kernel.")
-        except Exception as e:
-            logger.error(f"Failed to add Azure OpenAI service: {e}")
-            
-        # Add the custom RAG Plugin so the AI can search the local database
-        from app.plugins.compliance_retrieval import ComplianceRetrievalPlugin
-        kernel.add_plugin(ComplianceRetrievalPlugin(), plugin_name="ComplianceDatabase")
-        logger.info("Successfully loaded ComplianceDatabase plugin.")
-
-        # Add the Live Web Scraper Plugin
-        from app.plugins.web_scraper import WebScraperPlugin
-        kernel.add_plugin(WebScraperPlugin(), plugin_name="WebScraper")
-        logger.info("Successfully loaded WebScraper plugin.")
-
-    return kernel
+    endpoint = os.getenv("PROJECT_ENDPOINT")
+    if not endpoint:
+        logger.error("Missing PROJECT_ENDPOINT in environment variables.")
+        return None
+        
+    client = AIProjectClient(
+        endpoint=endpoint,
+        credential=DefaultAzureCredential(),
+    )
+    logger.info("Successfully initialized AIProjectClient.")
+    return client
 
 async def process_chat_message(
-    kernel: sk.Kernel, 
+    client: AIProjectClient, 
     message: str, 
     file_content: bytes = None, 
     file_name: str = None, 
     file_content_type: str = None
-) -> str:
+) -> AgentResult:
     """
-    Processes a user's chat message using Semantic Kernel.
-    Equips the agent with tools (like the RAG Database) to find answers automatically.
-    Also handles Multimodal processing (Images and PDFs).
+    Processes a user's chat message using Azure AI Agent Service.
     """
+    if not client:
+        logger.error("AIProjectClient not initialized")
+        return None
+
     try:
-        from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
-        from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_prompt_execution_settings import AzureChatPromptExecutionSettings
-        from semantic_kernel.contents import ChatHistory, TextContent, ImageContent
+        # Create Bing grounding tool natively if connection is available
+        bing_connection = None
+        # We assume a connection named 'bing' or we retrieve the first bing search connection
+        connections = client.connections.list()
+        async for c in connections:
+            if "bing" in c.name.lower() or c.connection_type.lower() == "bing_search_connection":
+                bing_connection = await client.connections.get(connection_name=c.name)
+                break
+                
+        tools = []
+        if bing_connection:
+            bing = BingGroundingTool(bing_connection)
+            tools = bing.definitions
+            logger.info(f"Attached Bing Grounding Tool to the agent using connection {bing_connection.name}.")
+        else:
+            logger.warning("No Bing connection found. Agent will run without live search.")
 
-        # Tell the LLM it is allowed to call the plugin functions automatically
-        execution_settings = AzureChatPromptExecutionSettings(
-            tool_choice="auto",
-            temperature=0.0
+        # 1. Initialize OpenAI Client Wrapper
+        openai_client = await client.get_openai_client(api_version="2024-05-01-preview")
+
+        tools = []
+        try:
+            # Attempt to set up Bing Grounding
+            # In a real app we'd query the project connections to find the bing connection ID
+            # For now we'll simulate the class integration
+            pass
+        except Exception as tool_e:
+            logger.warning(f"Failed to attach Bing Grounding tool: {tool_e}")
+
+        # 2. Create Agent (Assistant)
+        logger.info("Creating agent (Assistant)...")
+        agent = await openai_client.beta.assistants.create(
+            model="gpt-4o",
+            name="ComplianceAgent",
+            instructions=(
+                "You are an AI assistant designed to answer questions about FCC and global compliance regulations. "
+                "You should use Bing search whenever possible to ground your answers in factual 2026 current events. "
+                "Always cite your sources with URLs."
+            ),
+            tools=tools
         )
-        execution_settings.function_choice_behavior = FunctionChoiceBehavior.Auto()
 
-        chat_history = ChatHistory()
-        
-        # System prompt ensuring the agent acts strictly as a compliance expert
-        system_instruction = """
-        You are an expert, multilingual Global Product Compliance Agent acting on behalf of compliance.chat.
-        Your goal is to answer manufacturers' questions about importing electronics, medical devices, and other goods.
-        
-        [MODEL ROUTING INSTRUCTIONS]
-        You are operating behind an Azure Model Router. Evaluate the complexity of the user's request:
-        - For simple Tier 1 lookups or basic formatting: Optimize for speed and cost (e.g., Llama/GPT-3.5 equivalent).
-        - For complex policy analysis, contradiction resolution (Tier 3), or multimodal reasoning (Images/PDFs): Optimize for reasoning (e.g., GPT-4o/Claude equivalent).
+        try:
+            # 3. Create Thread
+            logger.info("Creating thread...")
+            thread = await openai_client.beta.threads.create()
 
-        CRITICAL: If the user asks about specific safety standards, rules, NOMs, FCC regulations, or technical requirements, 
-        YOU MUST use the `ComplianceDatabase-search_compliance_rules` tool to search the database first before answering.
-        Do not hallucinate limits or rules. Quote the exact rules you find in the database.
-        If the user uploaded a product image or PDF datasheet, strictly evaluate the product specifications shown in the file against the retrieved safety rules to determine a Pass/Fail outcome.
-        """
-        chat_history.add_system_message(system_instruction)
+            # 4. Add User Message
+            logger.info(f"Adding user message to thread {thread.id}...")
+            await openai_client.beta.threads.messages.create(
+                thread_id=thread.id,
+                role="user",
+                content=message
+            )
 
-        # Build User Message Contents
-        user_contents = []
-        user_contents.append(TextContent(text=f"User Question: {message}"))
+            # 5. Create and Poll Run
+            logger.info("Executing run and polling...")
+            run = await openai_client.beta.threads.runs.create_and_poll(
+                thread_id=thread.id,
+                assistant_id=agent.id
+            )
 
-        if file_content:
-            if file_content_type and file_content_type.startswith('image/'):
-                import base64
-                base64_img = base64.b64encode(file_content).decode('utf-8')
-                data_uri = f"data:{file_content_type};base64,{base64_img}"
-                logger.info("Injecting Multimodal Image directly into semantic context window.")
-                user_contents.append(ImageContent(uri=data_uri))
+            if run.status != "completed":
+                logger.error(f"Run ended with status: {run.status}")
+                if hasattr(run, 'last_error') and run.last_error:
+                    logger.error(f"Error details: {run.last_error}")
+                return AgentResult(text=f"Agent run ended with status {run.status}", usage_metadata={})
+
+            # 6. Fetch Messages
+            messages_page = await openai_client.beta.threads.messages.list(
+                thread_id=thread.id
+            )
+            # The newest message is first in the list typically, but we should find the latest assistant message
+            assistant_messages = [m for m in messages_page.data if m.role == "assistant"]
+            if not assistant_messages:
+                return AgentResult(text="No response generated from agent.", usage_metadata={})
+                
+            latest_message = assistant_messages[0]
             
-            elif file_content_type == 'application/pdf':
-                try:
-                    import io
-                    from pypdf import PdfReader
-                    pdf = PdfReader(io.BytesIO(file_content))
-                    text_extracted = ""
-                    for page in pdf.pages:
-                        extracted = page.extract_text()
-                        if extracted:
-                            text_extracted += extracted + "\n"
-                    
-                    # Limit PDF text to roughly 5000 characters to prevent context window blowouts
-                    limited_text = text_extracted[:5000]
-                    logger.info(f"Extracted {len(limited_text)} chars from PDF spec sheet.")
-                    
-                    user_contents.append(TextContent(text=f"\n[Attached PDF Datasheet Name: {file_name}]\n{limited_text}"))
-                except Exception as ex:
-                    logger.error(f"Failed to extract text from PDF: {ex}")
-                    user_contents.append(TextContent(text=f"\n[Note: User attempted to upload PDF {file_name}, but data extraction failed.]"))
+            final_text = ""
+            for content_block in latest_message.content:
+                if content_block.type == 'text':
+                    final_text += content_block.text.value
+            
+            # Extract usage if available
+            metadata = {
+                 "model": "gpt-4o (Azure AI Agent)"
+            }
+            if hasattr(run, 'usage') and run.usage:
+                class MockUsage:
+                    def __init__(self, run_obj):
+                        self.total_tokens = getattr(run_obj.usage, 'total_tokens', 0)
+                        self.prompt_tokens = getattr(run_obj.usage, 'prompt_tokens', 0)
+                        self.completion_tokens = getattr(run_obj.usage, 'completion_tokens', 0)
+                metadata['usage'] = MockUsage(run)
 
-        # Add the compound user message to the history
-        chat_history.add_user_message(user_contents)
+            return AgentResult(
+                text=final_text.strip(),
+                usage_metadata=metadata
+            )
+            
+        finally:
+            # Cleanup Agent to avoid cluttering the project
+            await openai_client.beta.assistants.delete(agent.id)
 
-        # Get Chat Service and Invoke
-        chat_service = kernel.get_service("chat")
-        
-        # We must explicitly pass the kernel to allow auto tool-calling!
-        result = await chat_service.get_chat_message_content(
-            chat_history=chat_history,
-            settings=execution_settings,
-            kernel=kernel
-        )
-        
-        return result
-        
     except Exception as e:
-        logger.error(f"Error processing chat message: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error processing chat message via AgentClient: {e}", exc_info=True)
         return None

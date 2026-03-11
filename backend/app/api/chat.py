@@ -1,7 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Form, UploadFile, File
 from fastapi.responses import JSONResponse
-import semantic_kernel as sk
-from app.models.chat_schemas import ChatResponse
 from app.services.agent_orchestrator import create_kernel, process_chat_message
 from app.core.auth import get_current_user
 from datetime import datetime, timezone
@@ -12,9 +10,9 @@ from app.core.usage import usage_tracker
 
 router = APIRouter()
 
-# Dependency to get the kernel instance
-def get_kernel() -> sk.Kernel:
-    return create_kernel()
+# Dependency to get the AIProjectClient instance
+async def get_kernel():
+    return await create_kernel()
 
 @router.get("/history")
 async def get_history(user: dict = Depends(get_current_user)):
@@ -37,7 +35,7 @@ async def chat_endpoint(
     message: str = Form(...),
     thread_id: str = Form(None),
     file: UploadFile = File(None),
-    kernel: sk.Kernel = Depends(get_kernel),
+    client = Depends(get_kernel),
     user: dict = Depends(get_current_user)
 ):
     """
@@ -69,13 +67,10 @@ async def chat_endpoint(
             },
         )
 
-    # Simple check to ensure keys are loaded
-    try:
-        kernel.get_service("chat")
-    except Exception:
+    if not client:
         raise HTTPException(
             status_code=500, 
-            detail="Azure OpenAI credentials not configured properly in .env."
+            detail="Azure AI Project Connection String not configured properly in .env."
         )
 
     try:
@@ -113,7 +108,7 @@ async def chat_endpoint(
 
         # --- TODO: pass recent history into process_chat_message if desired, 
         # but for now we just keep the standalone prompt for simplicity
-        result = await process_chat_message(kernel, message, file_content, file_name, file_content_type)
+        result = await process_chat_message(client, message, file_content, file_name, file_content_type)
         if not result:
              raise Exception("Empty response from AI")
 

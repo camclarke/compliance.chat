@@ -4,7 +4,7 @@ import uuid
 import logging
 from typing import Optional, Dict, Any
 from crawl4ai import AsyncWebCrawler
-from semantic_kernel.connectors.ai.open_ai import AzureTextEmbeddingGeneration
+from semantic_kernel.connectors.ai.open_ai.services.azure_text_embedding import AzureTextEmbedding
 from azure.cosmos.aio import CosmosClient
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class CrawlerService:
         self.settings = settings
         
         # Initialize Embedding Service
-        self.embedding_service = AzureTextEmbeddingGeneration(
+        self.embedding_service = AzureTextEmbedding(
             deployment_name=settings.AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
             endpoint=settings.AZURE_OPENAI_ENDPOINT,
             api_key=settings.AZURE_OPENAI_API_KEY,

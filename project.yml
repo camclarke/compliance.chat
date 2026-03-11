@@ -1,0 +1,7 @@
+$schema: https://azuremlschemas.azureedge.net/latest/workspace.schema.json
+name: compliance-agent-project
+location: eastus2
+display_name: Compliance Agent Project
+description: AI Project for Azure Agent SDK
+kind: project
+hub_id: /subscriptions/7cab9078-94cf-4340-abdf-7f3b7d30e985/resourceGroups/compliance-chat-rg/providers/Microsoft.MachineLearningServices/workspaces/compliance-chat-hub

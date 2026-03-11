@@ -1,0 +1,6 @@
+$schema: https://azuremlschemas.azureedge.net/latest/workspace.schema.json
+name: compliance-chat-hub
+location: eastus2
+display_name: Compliance Chat Hub
+description: AI Hub for compliance chat agent
+kind: hub

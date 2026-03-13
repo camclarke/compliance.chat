@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends, Form, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, Form, UploadFile, File, Request
 from fastapi.responses import JSONResponse
-from app.services.agent_orchestrator import create_kernel, process_chat_message
+from app.services.agent_orchestrator import process_chat_message
 from app.core.auth import get_current_user
 from datetime import datetime, timezone
 import uuid
@@ -10,9 +10,9 @@ from app.core.usage import usage_tracker
 
 router = APIRouter()
 
-# Dependency to get the AIProjectClient instance
-async def get_kernel():
-    return await create_kernel()
+# Dependency: return the shared AIProjectClient initialised at app startup.
+async def get_kernel(request: Request):
+    return getattr(request.app.state, "ai_client", None)
 
 @router.get("/history")
 async def get_history(user: dict = Depends(get_current_user)):
@@ -106,9 +106,16 @@ async def chat_endpoint(
         )
         thread.messages.append(user_msg)
 
-        # --- TODO: pass recent history into process_chat_message if desired, 
-        # but for now we just keep the standalone prompt for simplicity
-        result = await process_chat_message(client, message, file_content, file_name, file_content_type)
+        # Build conversation history from prior thread messages (exclude the message just appended)
+        history = [
+            {"role": m.role, "content": m.content}
+            for m in thread.messages[:-1]
+            if m.role in ("user", "assistant")
+        ]
+
+        result = await process_chat_message(
+            client, message, file_content, file_name, file_content_type, history=history
+        )
         if not result:
              raise Exception("Empty response from AI")
 
@@ -146,10 +153,12 @@ async def chat_endpoint(
         # Save to Cosmos DB
         saved_thread = history_service.save_thread(thread)
 
+        sources = getattr(result, "sources", []) or []
+
         response = JSONResponse(
             content={
                 "reply": reply_text,
-                "sources": ["Multimodal Swarm Response"],
+                "sources": sources,
                 "thread_id": saved_thread.id,
                 "model": model_name
             },
